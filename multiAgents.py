@@ -74,7 +74,46 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        newScore = successorGameState.getScore()
+
+        import util
+
+        newFoodList = newFood.asList()
+        
+        # Get the closest distance to a food pellet.
+        newFoodDistances = [util.manhattanDistance(foodPos, newPos) for foodPos in newFoodList]
+        minDistance = min(newFoodDistances) if len(newFoodDistances) > 0 else None
+        
+        # Get the closest distance to any ghost (won't remember which gost if more than one ghost)
+        newGhostPositions = [ghostState.getPosition() for ghostState in newGhostStates]
+        newGhostDistances = [util.manhattanDistance(ghostPos, newPos) for ghostPos in newGhostPositions]
+        minGhostDistance = min(newGhostDistances) if len(newGhostDistances) > 0 else None
+        
+        # Get closet distance to a capsule (i.e. food-pellet make ghosts scared)
+        capsuleList = currentGameState.getCapsules()
+        newCapsuleList = successorGameState.getCapsules()
+        capsuleDistances = [util.manhattanDistance(pos, newPos) for pos in newCapsuleList]
+        minCapsuleDistance = min(capsuleDistances) if len(capsuleDistances) > 0 else None
+        if len(capsuleList) > len(newCapsuleList):
+            newScore += 1
+        
+        # Get the minimum amount of time that any ghost is still scared (just to be cautious).
+        minScaredTime = min(newScaredTimes)
+        
+        # Scoring
+        minDistanceScore = 1.0 / float(minDistance + 1) if minDistance != None else 0
+        ghostDistanceScore = 1.0 / float(minGhostDistance + 1) if minGhostDistance != None else 0
+        minCapsuleDistanceScore = 1.0 / float(minCapsuleDistance + 1) if minCapsuleDistance != None else 0
+
+        if (minGhostDistance != None) and (minGhostDistance <= 1):
+            # If any ghost is normal, run from them if one of them is really close.
+            # Only if all of them scared, go to them.
+            return -1 if minScaredTime == 0 else newScore + 1
+        else:
+            # If any ghost is normal, get the closest food-pellet or capsule
+            # IF all ghost scared, go to them.
+            score = max(minCapsuleDistanceScore, minDistanceScore) if minScaredTime == 0 else ghostDistanceScore
+            return newScore + score
 
 def scoreEvaluationFunction(currentGameState):
     """
