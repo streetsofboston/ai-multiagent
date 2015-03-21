@@ -174,11 +174,10 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        bestAction = minimax(self, gameState, self.index, self.depth)
-        #print str(bestAction)
+        bestAction = minimax(self, gameState, self.index, self.depth, None)
         return bestAction[1][0]
 
-def minimax(agent, gameState, agentIndex, ply):
+def minimax(agent, gameState, agentIndex, ply, alphaBeta):
     import sys
     isMaximizingPlayer = (agentIndex == 0)
 
@@ -186,30 +185,72 @@ def minimax(agent, gameState, agentIndex, ply):
         return agent.evaluationFunction(gameState), []
   
     actions = gameState.getLegalActions(agentIndex)
-    nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
         
     if isMaximizingPlayer:
-        bestValue = -(sys.maxint-1), []
-        for action in actions:
-            successorState = gameState.generateSuccessor(agentIndex, action)
-            minimaxResult = minimax(agent, successorState, nextAgentIndex, ply - 1)
-            
-            value = minimaxResult[0], [action] + minimaxResult[1]
-            if value[0] > bestValue[0]:
-                bestValue = value
-            
-        return bestValue
+        return max_value(agent, gameState, agentIndex, ply, actions, alphaBeta)
     else:
-        bestValue = sys.maxint, []
-        for action in actions:
-            successorState = gameState.generateSuccessor(agentIndex, action)
-            minimaxResult = minimax(agent, successorState, nextAgentIndex, ply)
+        return min_value(agent, gameState, agentIndex, ply, actions, alphaBeta)
+    
+def max_value(agent, gameState, agentIndex, ply, actions, alphaBeta):
+    import sys
+    nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+
+    # Save and restore the alphaBeta so that it only propagates from path to root, not over the entire tree.
+    savedAlphaBeta = [] + alphaBeta if alphaBeta != None else None
+    
+    bestValue = -(sys.maxint-1), []
+    for action in actions:
+        successorState = gameState.generateSuccessor(agentIndex, action)
+        minimaxResult = minimax(agent, successorState, nextAgentIndex, ply - 1, alphaBeta)
+           
+        value = minimaxResult[0], [action] + minimaxResult[1]
+        if value[0] > bestValue[0]:
+            bestValue = value
+        
+        if alphaBeta != None:    
+            if (bestValue[0] > alphaBeta[1]):
+                alphaBeta[0] = savedAlphaBeta[0]
+                alphaBeta[1] = savedAlphaBeta[1]
+                return bestValue
             
-            value = minimaxResult[0], [action] + minimaxResult[1]
-            if value[0] < bestValue[0]:
-                bestValue = value
+            alphaBeta[0] = max(alphaBeta[0], bestValue[0])
+        
+    if savedAlphaBeta != None:
+        alphaBeta[0] = savedAlphaBeta[0]
+        alphaBeta[1] = savedAlphaBeta[1]
+
+    return bestValue
+    
+def min_value(agent, gameState, agentIndex, ply, actions, alphaBeta):
+    import sys
+    nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+
+    # Save and restore the alphaBeta so that it only propagates from path to root, not over the entire tree.
+    savedAlphaBeta = [] + alphaBeta if alphaBeta != None else None
+
+    bestValue = sys.maxint, []
+    for action in actions:
+        successorState = gameState.generateSuccessor(agentIndex, action)
+        minimaxResult = minimax(agent, successorState, nextAgentIndex, ply, alphaBeta)
             
-        return bestValue
+        value = minimaxResult[0], [action] + minimaxResult[1]
+        if value[0] < bestValue[0]:
+            bestValue = value
+           
+        if alphaBeta != None:    
+            if (bestValue[0] < alphaBeta[0]):
+                alphaBeta[0] = savedAlphaBeta[0]
+                alphaBeta[1] = savedAlphaBeta[1]
+                return bestValue
+            
+            alphaBeta[1] = min(alphaBeta[1], bestValue[0])
+            
+    if savedAlphaBeta != None:
+        alphaBeta[0] = savedAlphaBeta[0]
+        alphaBeta[1] = savedAlphaBeta[1]
+
+    return bestValue
+
     
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -221,7 +262,11 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
           Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        import sys
+
+        alphaBeta = [-(sys.maxint-1), sys.maxint]
+        bestAction = minimax(self, gameState, self.index, self.depth, alphaBeta)
+        return bestAction[1][0]
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
