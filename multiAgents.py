@@ -174,8 +174,43 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        bestAction = minimax(self, gameState, self.index, self.depth)
+        #print str(bestAction)
+        return bestAction[1][0]
 
+def minimax(agent, gameState, agentIndex, ply):
+    import sys
+    isMaximizingPlayer = (agentIndex == 0)
+
+    if (isMaximizingPlayer and ply == 0) or gameState.isWin() or gameState.isLose():
+        return agent.evaluationFunction(gameState), []
+  
+    actions = gameState.getLegalActions(agentIndex)
+    nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+        
+    if isMaximizingPlayer:
+        bestValue = -(sys.maxint-1), []
+        for action in actions:
+            successorState = gameState.generateSuccessor(agentIndex, action)
+            minimaxResult = minimax(agent, successorState, nextAgentIndex, ply - 1)
+            
+            value = minimaxResult[0], [action] + minimaxResult[1]
+            if value[0] > bestValue[0]:
+                bestValue = value
+            
+        return bestValue
+    else:
+        bestValue = sys.maxint, []
+        for action in actions:
+            successorState = gameState.generateSuccessor(agentIndex, action)
+            minimaxResult = minimax(agent, successorState, nextAgentIndex, ply)
+            
+            value = minimaxResult[0], [action] + minimaxResult[1]
+            if value[0] < bestValue[0]:
+                bestValue = value
+            
+        return bestValue
+    
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
       Your minimax agent with alpha-beta pruning (question 3)
