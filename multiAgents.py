@@ -284,19 +284,18 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         bestAction = expectimax(self, gameState, self.index, self.depth)
         return bestAction[1][0]
 
-def betterEvaluationFunction(currentGameState):
-    return evaluationFunction2(currentGameState)
-
-def evaluationFunction1(gameState):
-    # Useful information you can extract from a GameState (pacman.py)
+def betterEvaluationFunction(gameState):
+    # See inline comments for explanations.
+    
     newPos = gameState.getPacmanPosition()
     newFood = gameState.getFood()
     newGhostStates = gameState.getGhostStates()
     newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-
-    "*** YOUR CODE HERE ***"
     newScore = gameState.getScore()
 
+    # maximum manhattan distance to any object/agent.
+    maxDistance = gameState.data.layout.height + gameState.data.layout.width
+    
     import util
 
     newFoodList = newFood.asList()
@@ -305,85 +304,53 @@ def evaluationFunction1(gameState):
     newFoodDistances = [util.manhattanDistance(foodPos, newPos) for foodPos in newFoodList]
     minDistance = min(newFoodDistances) if len(newFoodDistances) > 0 else None
     
-    # Get the closest distance to any ghost (won't remember which gost if more than one ghost)
+    # Get average distance to a a food pellet, i.e. the center of all food-pellets.
+    if len(newFoodList) > 0:
+        totalDistance = reduce(lambda pos1, pos2: (float(pos1[0]+pos2[0]), float(pos1[1]+pos2[1])), newFoodList)
+        averageDistance = util.manhattanDistance((totalDistance[0] / float(len(newFoodList)), totalDistance[1] / float(len(newFoodList))), newPos)
+    else:
+        averageDistance = None
+        
+    # Get the closest distance to any ghost (won't remember which ghost if more than one ghost agent in game)
     newGhostPositions = [ghostState.getPosition() for ghostState in newGhostStates]
     newGhostDistances = [util.manhattanDistance(ghostPos, newPos) for ghostPos in newGhostPositions]
-    minGhostDistance = min(newGhostDistances) if len(newGhostDistances) > 0 else None
+    minGhostDistance = min(newGhostDistances)
     
-    # Get closet distance to a capsule (i.e. food-pellet make ghosts scared)
-    #capsuleList = gameState.getCapsules()
+    # Get closet distance to a capsule (i.e. food-pellet that makes ghosts scared)
     newCapsuleList = gameState.getCapsules()
     capsuleDistances = [util.manhattanDistance(pos, newPos) for pos in newCapsuleList]
     minCapsuleDistance = min(capsuleDistances) if len(capsuleDistances) > 0 else None
-    #if len(capsuleList) > len(newCapsuleList):
-    #    newScore += 1
     
+    # Any eaten capsule is worth 20 points for scoring.
+    # This tends to increase scared-times of ghosts, increasing possible overall average scores for pacman.
+    # It may decrease possible maximum scores, though.
+    if len(newCapsuleList) == 0:
+        newScore += 20
+
     # Get the minimum amount of time that any ghost is still scared (just to be cautious).
     minScaredTime = min(newScaredTimes)
     
     # Scoring
     minDistanceScore = 1.0 / float(minDistance + 1) if minDistance != None else 0
-    ghostDistanceScore = 1.0 / float(minGhostDistance + 1) if minGhostDistance != None else 0
+    averageDistanceScore = 1.0 / float(averageDistance + 1) if averageDistance != None else 0
+    ghostDistanceScore = 1.0 / float(minGhostDistance + 1)
     minCapsuleDistanceScore = 1.0 / float(minCapsuleDistance + 1) if minCapsuleDistance != None else 0
 
-    if (minGhostDistance != None) and (minGhostDistance <= 1):
+    if (minGhostDistance <= 1):
         # If any ghost is normal, run from them if one of them is really close.
-        # Only if all of them scared, go to them.
-        return -1 if minScaredTime == 0 else newScore + 1
+        # Only if all of them are scared, go to them (be cautious).
+        return -10 if minScaredTime == 0 else newScore + 10
     else:
+        # How hungry is pacman? Go to closest food-pellet. When all things equal, gravitate towards
+        # center of all food-pellets.
+        hungryScore = 0.1 * averageDistanceScore + max(minCapsuleDistanceScore, minDistanceScore)
+        # How afraid is pacman? The further the distance from the closest ghost, the better.
+        # Weight of this score is less than the hungry score.
+        afraidScore = 0.9 * (minGhostDistance / maxDistance)
+        
         # If any ghost is normal, get the closest food-pellet or capsule
-        # IF all ghost scared, go to them.
-        score = max(minCapsuleDistanceScore, minDistanceScore) if minScaredTime == 0 else ghostDistanceScore
-        return newScore + score
-
-
-def evaluationFunction2(gameState):
-    # Useful information you can extract from a GameState (pacman.py)
-    newPos = gameState.getPacmanPosition()
-    newFood = gameState.getFood()
-    newGhostStates = gameState.getGhostStates()
-    newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-
-    "*** YOUR CODE HERE ***"
-    newScore = gameState.getScore()
-
-    import util
-
-    newFoodList = newFood.asList()
-    
-    # Get the closest distance to a food pellet.
-    newFoodDistances = [util.manhattanDistance(foodPos, newPos) for foodPos in newFoodList]
-    minDistance = min(newFoodDistances) if len(newFoodDistances) > 0 else None
-    
-    # Get the closest distance to any ghost (won't remember which gost if more than one ghost)
-    newGhostPositions = [ghostState.getPosition() for ghostState in newGhostStates]
-    newGhostDistances = [util.manhattanDistance(ghostPos, newPos) for ghostPos in newGhostPositions]
-    minGhostDistance = min(newGhostDistances) if len(newGhostDistances) > 0 else None
-    
-    # Get closet distance to a capsule (i.e. food-pellet make ghosts scared)
-    #capsuleList = gameState.getCapsules()
-    newCapsuleList = gameState.getCapsules()
-    capsuleDistances = [util.manhattanDistance(pos, newPos) for pos in newCapsuleList]
-    minCapsuleDistance = min(capsuleDistances) if len(capsuleDistances) > 0 else None
-    #if len(capsuleList) > len(newCapsuleList):
-    #    newScore += 1
-    
-    # Get the minimum amount of time that any ghost is still scared (just to be cautious).
-    minScaredTime = min(newScaredTimes)
-    
-    # Scoring
-    minDistanceScore = 1.0 / float(minDistance + 1) if minDistance != None else 0
-    ghostDistanceScore = 1.0 / float(minGhostDistance + 1) if minGhostDistance != None else 0
-    minCapsuleDistanceScore = 1.0 / float(minCapsuleDistance + 1) if minCapsuleDistance != None else 0
-
-    if (minGhostDistance != None) and (minGhostDistance <= 1):
-        # If any ghost is normal, run from them if one of them is really close.
-        # Only if all of them scared, go to them.
-        return -1 if minScaredTime == 0 else newScore + 1
-    else:
-        # If any ghost is normal, get the closest food-pellet or capsule
-        # IF all ghost scared, go to them.
-        score = max(minCapsuleDistanceScore, minDistanceScore) if minScaredTime == 0 else ghostDistanceScore
+        # Only if all ghosts are scared, go to them:
+        score = (hungryScore + afraidScore) if minScaredTime == 0 else (10.0 * ghostDistanceScore)
         return newScore + score
 
 def expectimax(agent, gameState, agentIndex, ply):
